@@ -138,6 +138,19 @@ do
     CLASSPATH="$CLASSPATH":"$file"
   fi
 done
+
+# Set SENTRY_HOME if possible and add Sentry jars to classpath
+if [[ -z "$SENTRY_HOME" ]]; then
+  if [[ -d ${base_dir}/../sentry ]]; then
+    export SENTRY_HOME=`readlink -m ${base_dir}/../sentry`
+  fi
+fi
+if [[ -n "$SENTRY_HOME" ]]; then
+  for f in ${SENTRY_HOME}/lib/*.jar ${SENTRY_HOME}/lib/plugins/*.jar; do
+    export CLASSPATH=${CLASSPATH}:${f}
+  done
+fi
+
 shopt -u nullglob
 
 # JMX settings

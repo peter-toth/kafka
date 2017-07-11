@@ -1,0 +1,49 @@
+// Downloads the parent kafka cdh pom
+// Used to set common dependency versions to match the versions in the pom
+configurations {
+  cdhPom
+}
+
+dependencies {
+  cdhPom "com.cloudera.cdh:cdh-root:${cdhversion}@pom"
+}
+
+  // Resolve the pom from the dependencies/repository
+configurations.cdhPom.resolve().each { file ->
+  logger.info("Resolving CDH pom file")
+  if (file.name.startsWith("cdh-root") && file.name.endsWith(".pom")) {
+    // Parse the pom file
+    def parser = new XmlSlurper(false, false).parse(file)
+
+    // Read the required version properties and adjust the version originally set in dependencies.gradle
+    def zookeeperVersion = parser.properties."cdh.zookeeper.version"
+    logger.info("Setting zookeeper version to $zookeeperVersion")
+
+    def slf4jVersion = parser.properties."cdh.slf4j.version"
+    logger.info("Setting slf4j version to $slf4jVersion")
+
+    def jetty9Version = parser.properties."cdh.jetty9.version"
+    logger.info("Setting jetty9 version to $jetty9Version")
+
+    // Only set if its not already to support CLI overrides
+    if (!project.hasProperty('scalaVersion')) {
+      ext.scalaVersion = parser.properties."cdh.scala.version".toString()
+      logger.info("Setting scala version to $scalaVersion")
+    }
+
+    // Force the versions for all configurations except cdhPom
+    configurations.all { config ->
+      if(config.name != "cdhPom") {
+        config.resolutionStrategy {
+          // force cdh versions of dependencies (including transitive)
+          force "org.apache.zookeeper:zookeeper:$zookeeperVersion"
+          force "org.slf4j:slf4j-api:$slf4jVersion"
+          force "org.slf4j:slf4j-log4j12:$slf4jVersion"
+          force "org.eclipse.jetty:jetty-server:$jetty9Version"
+          force "org.eclipse.jetty:jetty-servlet:$jetty9Version"
+          force "org.eclipse.jetty:jetty-servlets:$jetty9Version"
+        }
+      }
+    }
+  }
+}
