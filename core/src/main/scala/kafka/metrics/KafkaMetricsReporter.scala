@@ -78,3 +78,36 @@ object KafkaMetricsReporter {
   }
 }
 
+import kafka.server.KafkaServer
+
+trait KafkaServerMetricsReporter extends KafkaMetricsReporter {
+  def init(props: VerifiableProperties, server: KafkaServer)
+}
+
+object KafkaServerMetricsReporter {
+
+  val ReporterStarted: AtomicBoolean = new AtomicBoolean(false)
+
+  def startReporters (verifiableProps: VerifiableProperties, server: KafkaServer) {
+    ReporterStarted synchronized {
+      if (!ReporterStarted.get()) {
+        val metricsConfig = new KafkaMetricsConfig(verifiableProps)
+        if(metricsConfig.reporters.size > 0) {
+          metricsConfig.reporters.foreach(reporterType => {
+            val reporter = CoreUtils.createObject[KafkaMetricsReporter](reporterType)
+            // Handle KafkaServerMetricsReporter to support adding the server instance
+            if (reporter.isInstanceOf[KafkaServerMetricsReporter])
+              reporter.asInstanceOf[KafkaServerMetricsReporter].init(verifiableProps, server)
+            else
+              reporter.init(verifiableProps)
+            if (reporter.isInstanceOf[KafkaMetricsReporterMBean])
+              CoreUtils.registerMBean(reporter, reporter.asInstanceOf[KafkaMetricsReporterMBean].getMBeanName)
+          })
+          ReporterStarted.set(true)
+        }
+      }
+    }
+  }
+}
+
+
