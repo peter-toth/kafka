@@ -19,13 +19,20 @@ package kafka.server
 
 import java.util.Properties
 
-import kafka.metrics.KafkaMetricsReporter
+import kafka.metrics.{KafkaMetricsReporter, KafkaServerMetricsReporter}
 import kafka.utils.{Exit, Logging, VerifiableProperties}
 
-object KafkaServerStartable {
+object KafkaServerStartable extends Logging {
   def fromProps(serverProps: Properties) = {
     val reporters = KafkaMetricsReporter.startReporters(new VerifiableProperties(serverProps))
-    new KafkaServerStartable(KafkaConfig.fromProps(serverProps), reporters)
+
+    info(s"reporters: $reporters")
+
+    val startable = new KafkaServerStartable(KafkaConfig.fromProps(serverProps), reporters)
+
+    reporters.filter(_.isInstanceOf[KafkaServerMetricsReporter]).foreach(_.asInstanceOf[KafkaServerMetricsReporter].setServer(startable.server))
+
+    startable
   }
 }
 

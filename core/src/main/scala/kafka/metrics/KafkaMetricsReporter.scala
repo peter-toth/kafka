@@ -81,10 +81,10 @@ object KafkaMetricsReporter {
 import kafka.server.KafkaServer
 
 trait KafkaServerMetricsReporter extends KafkaMetricsReporter {
-  def init(props: VerifiableProperties, server: KafkaServer)
+  def setServer(server: KafkaServer)
 }
 
-object KafkaServerMetricsReporter {
+/*object KafkaServerMetricsReporter {
 
   val ReporterStarted: AtomicBoolean = new AtomicBoolean(false)
 
@@ -108,6 +108,6 @@ object KafkaServerMetricsReporter {
       }
     }
   }
-}
+}*/
 
 

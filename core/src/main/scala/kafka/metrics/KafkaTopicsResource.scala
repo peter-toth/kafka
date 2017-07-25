@@ -23,17 +23,55 @@ import javax.ws.rs.Produces
 import javax.ws.rs.core.MediaType
 
 import kafka.server.KafkaServer
+import org.apache.kafka.common.network.ListenerName
+import org.apache.kafka.common.protocol.SecurityProtocol
 
-import scala.collection.Set
+import collection.JavaConverters._
 
 @Path("/topics")
 @Produces(Array(MediaType.APPLICATION_JSON))
-class KafkaTopicsResource(val server: KafkaServer) {
+class KafkaTopicsResource(server: KafkaServer) {
+
   @GET
-  @Path("/")
-  def listTopics: Set[String] = {
+  def listTopics: java.util.Map[String, KafkaTopic] = {
     if (server == null) return null
-    server.metadataCache.getAllTopics()
+
+    val topics = server.metadataCache.getAllTopics()
+    val listener = ListenerName.forSecurityProtocol(SecurityProtocol.PLAINTEXT)
+    val result =
+      for {
+        topicMetadata <- server.metadataCache.getTopicMetadata(topics, listener, false)
+        topicName = topicMetadata.topic
+        internal = topicMetadata.isInternal
+        kafkaPartitions = for {
+          partitionMetadata <- topicMetadata.partitionMetadata.asScala
+          partition = partitionMetadata.partition
+          replicas = partitionMetadata.replicas.asScala.map(_.id).asJava
+          leader = partitionMetadata.leader.id
+          isr = partitionMetadata.isr.asScala.map(_.id).asJava
+        } yield new KafkaPartition(partition, replicas, leader, isr) if !kafkaPartitions.isEmpty
+      } yield (topicName, new KafkaTopic(internal, kafkaPartitions.asJava, null))
+
+    result.toMap.asJava
+
+    /*val result =
+      for {
+        topicName <- zkClient.getAllTopicNames()
+        topic <- zkClient.getTopic(topicName)
+        internal = Topic.isInternal(topicName)
+        kafkaPartitions = for {
+          partition <- zkClient.getAllTopicPartitions(topic)
+          partitionState <- zkClient.getTopicPartitionState(topicName, partition)
+          replicas = zkClient.getTopicPartitionReplicas(topic, partition)
+          leader = partitionState.leader
+          isr = partitionState.isr
+        } yield new KafkaPartition(partition, replicas.toList, leader, isr) if !kafkaPartitions.isEmpty
+        topicConfig <- zkClient.getTopicConfig(topicName)
+        topicProps = topicConfigToProperties(topicConfig)
+      } yield (topicName, new KafkaTopic(internal, kafkaPartitions.toList, topicProps))
+
+    result.toMap*/
   }
+
 }
 
